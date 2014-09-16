@@ -57,7 +57,7 @@ class RegisterCommandHandlersPass implements CompilerPassInterface
             return;
         }
 
-        $locator = $container->getDefinition($this->locatorService);
+        $locator = $container->findDefinition($this->locatorService);
 
         foreach ($container->findTaggedServiceIds($this->handlerTag) as $handlerId => $commands) {
             $this->processTaggedService($container, $locator, $handlerId, $commands);
@@ -76,6 +76,7 @@ class RegisterCommandHandlersPass implements CompilerPassInterface
      */
     private function processTaggedService(ContainerBuilder $container, Definition $locator, $handlerId, array $commands)
     {
+        $interface = 'Helthe\Component\CQRS\CommandHandler\CommandHandlerInterface';
         $handler = $container->getDefinition($handlerId);
 
         if (!$handler->isPublic()) {
@@ -84,6 +85,12 @@ class RegisterCommandHandlersPass implements CompilerPassInterface
 
         if ($handler->isAbstract()) {
             throw new \InvalidArgumentException(sprintf('The service "%s" must not be abstract as command handlers are lazy-loaded.', $handlerId));
+        }
+
+        $reflection = new \ReflectionClass($handler->getClass());
+
+        if (!$reflection->implementsInterface($interface)) {
+            throw new \InvalidArgumentException(sprintf('The service "%s" must implement interface "%s".', $handlerId, $interface));
         }
 
         foreach ($commands as $command) {

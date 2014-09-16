@@ -12,6 +12,9 @@
 namespace Helthe\Bundle\CQRSBundle\Tests\DependencyInjection\Compiler;
 
 use Helthe\Bundle\CQRSBundle\DependencyInjection\Compiler\RegisterCommandHandlersPass;
+use Helthe\Component\CQRS\Command\CommandInterface;
+use Helthe\Component\CQRS\CommandHandler\CommandHandlerInterface;
+use Helthe\Component\CQRS\Exception\InvalidCommandException;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 class RegisterCommandHandlersPassTest extends \PHPUnit_Framework_TestCase
@@ -32,13 +35,42 @@ class RegisterCommandHandlersPassTest extends \PHPUnit_Framework_TestCase
 
     /**
      * @expectedException \InvalidArgumentException
-     * @expectedExceptionMessage Service "foo" must define the "command" attribute on "helthe_cqrs.command_handler" tags.
+     * @expectedExceptionMessage Service "my_command_handler" must define the "command" attribute on "helthe_cqrs.command_handler" tags.
      */
     public function testRegisterCommandHandlerWithoutCommandAttributeListener()
     {
-        $container = new ContainerBuilder();
-        $container->register('foo', 'stdClass')->addTag('helthe_cqrs.command_handler', array());
-        $container->register('helthe_cqrs.command_handler_locator', 'stdClass');
+        $handlerDefinition = $this->getDefinitionMock();
+        $handlerDefinition->expects($this->once())
+                          ->method('isPublic')
+                          ->will($this->returnValue(true));
+        $handlerDefinition->expects($this->once())
+                          ->method('isAbstract')
+                          ->will($this->returnValue(false));
+        $handlerDefinition->expects($this->once())
+                          ->method('getClass')
+                          ->will($this->returnValue('Helthe\Bundle\CQRSBundle\Tests\DependencyInjection\Compiler\CommandHandler'));
+
+        $locatorDefinition = $this->getDefinitionMock();
+        $locatorDefinition->expects($this->never())
+                          ->method('addMethodCall');
+
+        $container = $this->getMock('Symfony\Component\DependencyInjection\ContainerBuilder');
+        $container->expects($this->once())
+                  ->method('hasDefinition')
+                  ->with($this->equalTo('helthe_cqrs.command_handler_locator'))
+                  ->will($this->returnValue(true));
+        $container->expects($this->once())
+                  ->method('findDefinition')
+                  ->with($this->equalTo('helthe_cqrs.command_handler_locator'))
+                  ->will($this->returnValue($locatorDefinition));
+        $container->expects($this->once())
+                  ->method('getDefinition')
+                  ->with($this->equalTo('my_command_handler'))
+                  ->will($this->returnValue($handlerDefinition));
+        $container->expects($this->once())
+                  ->method('findTaggedServiceIds')
+                  ->with($this->equalTo('helthe_cqrs.command_handler'))
+                  ->will($this->returnValue(array('my_command_handler' => array(array()))));
 
         $registerCommandHandlersPass = new RegisterCommandHandlersPass();
         $registerCommandHandlersPass->process($container);
@@ -58,7 +90,11 @@ class RegisterCommandHandlersPassTest extends \PHPUnit_Framework_TestCase
         $registerCommandHandlersPass->process($container);
     }
 
-    public function testRegisterValidCommandHandler()
+    /**
+     * @expectedException \InvalidArgumentException
+     * @expectedExceptionMessage The service "foo" must implement interface "Helthe\Component\CQRS\CommandHandler\CommandHandlerInterface".
+     */
+    public function testRegisterCommandHandlerWithoutInterface()
     {
         $container = new ContainerBuilder();
         $container->register('foo', 'stdClass')->addTag('helthe_cqrs.command_handler', array('command' => 'bar'));
@@ -71,4 +107,61 @@ class RegisterCommandHandlersPassTest extends \PHPUnit_Framework_TestCase
 
         $this->assertSame(array(array('register', array('bar', 'foo'))), $definition->getMethodCalls());
     }
+
+    public function testRegisterValidCommandHandler()
+    {
+        $handlerDefinition = $this->getDefinitionMock();
+        $handlerDefinition->expects($this->once())
+                          ->method('isPublic')
+                          ->will($this->returnValue(true));
+        $handlerDefinition->expects($this->once())
+                          ->method('isAbstract')
+                          ->will($this->returnValue(false));
+        $handlerDefinition->expects($this->once())
+                          ->method('getClass')
+                          ->will($this->returnValue('Helthe\Bundle\CQRSBundle\Tests\DependencyInjection\Compiler\CommandHandler'));
+
+        $locatorDefinition = $this->getDefinitionMock();
+        $locatorDefinition->expects($this->once())
+                          ->method('addMethodCall')
+                          ->with($this->equalTo('register'), $this->equalTo(array('bar', 'my_command_handler')));
+
+        $container = $this->getMock('Symfony\Component\DependencyInjection\ContainerBuilder');
+        $container->expects($this->once())
+                  ->method('hasDefinition')
+                  ->with($this->equalTo('helthe_cqrs.command_handler_locator'))
+                  ->will($this->returnValue(true));
+        $container->expects($this->once())
+                  ->method('findDefinition')
+                  ->with($this->equalTo('helthe_cqrs.command_handler_locator'))
+                  ->will($this->returnValue($locatorDefinition));
+        $container->expects($this->once())
+                  ->method('getDefinition')
+                  ->with($this->equalTo('my_command_handler'))
+                  ->will($this->returnValue($handlerDefinition));
+        $container->expects($this->once())
+                  ->method('findTaggedServiceIds')
+                  ->with($this->equalTo('helthe_cqrs.command_handler'))
+                  ->will($this->returnValue(array('my_command_handler' => array(array('command' => 'bar')))));
+
+        $registerCommandHandlersPass = new RegisterCommandHandlersPass();
+        $registerCommandHandlersPass->process($container);
+    }
+
+    /**
+     * Get a mock of a dependency injection definition.
+     *
+     * @return \PHPUnit_Framework_MockObject_MockObject
+     */
+    private function getDefinitionMock()
+    {
+        return $this->getMock('Symfony\Component\DependencyInjection\Definition');
+    }
+}
+
+class CommandHandler implements CommandHandlerInterface
+{
+    public function execute(CommandInterface $command) {}
+
+    public function supports(CommandInterface $command) {}
 }
