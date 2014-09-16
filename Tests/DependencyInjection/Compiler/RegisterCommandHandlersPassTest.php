@@ -14,7 +14,6 @@ namespace Helthe\Bundle\CQRSBundle\Tests\DependencyInjection\Compiler;
 use Helthe\Bundle\CQRSBundle\DependencyInjection\Compiler\RegisterCommandHandlersPass;
 use Helthe\Component\CQRS\Command\CommandInterface;
 use Helthe\Component\CQRS\CommandHandler\CommandHandlerInterface;
-use Helthe\Component\CQRS\Exception\InvalidCommandException;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 class RegisterCommandHandlersPassTest extends \PHPUnit_Framework_TestCase
