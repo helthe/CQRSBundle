@@ -51,7 +51,7 @@ of the command class the handler can execute.
 <service id="acme_demo.command_handler.your_handler_name" class="Acme\DemoBundle\CommandHandler\AcmeCommandHandler">
     <tag name="helthe_cqrs.command_handler" command="Acme\DemoBundle\Command\AcmeCommand" />
 </service>
-``
+```
 
 ## Bugs
 
